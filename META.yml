@@ -1,0 +1,13 @@
+name:                Log::Message::JSON
+version:             0.01
+abstract:            structured messages that stringify to JSON
+license:             perl
+distribution_type:   module
+requires:
+  base:        0
+  overload:    0
+  Exporter:    0
+  Carp:        0
+  Tie::IxHash: 0
+author:
+  - Stanislaw Klekot <cpan@jarowit.net>
