@@ -192,7 +192,7 @@ sub new {
   } else {
     # keep the order
     if (@args % 2 == 1) {
-      %self = "message", @args;
+      %self = ("message", @args);
     } else {
       %self = @args;
     }
