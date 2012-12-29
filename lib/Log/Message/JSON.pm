@@ -67,7 +67,7 @@ use Carp;
 
 #-----------------------------------------------------------------------------
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 #-----------------------------------------------------------------------------
 
@@ -100,7 +100,8 @@ future and choose one for whole application).
 
 These functions accept either a reference to a hash or a list of
 C<< key => value >> pairs. The latter form preserves keys order, so I believe
-it's more useful.
+it's more useful. Also, in the latter form you may skip the first key name;
+the value will be stored under C<message> key in such case.
 
 Returned value is an object created with C<new()> method (see
 L</"Object-Oriented API">), so it's a reference to a hash (blessed, but still
@@ -113,10 +114,12 @@ Usage example:
 
   my $msg1 = logmsg { key1 => 1, key2 => 2 };
   my $msg2 = logmsg foo => 1, bar => 2, text => "some text";
+  my $msg3 = logmsg "my log message", host => hostname();
 
   my $logger = Log::Log4perl->get_logger();
   $logger->info($msg1);
   $logger->debug($msg2);
+  $logger->warn($msg3);
 
   print $msg1;
   printf "%s => %s\n", $_, $msg2->{$_} for keys %$msg2;
@@ -165,7 +168,8 @@ stringification operator, reference is blessed with Log::Message::JSON
 package.
 
 If the first call form (list of pairs) was used, the order of key/value pairs
-is preserved.
+is preserved. If the number of elements is odd, the first element is believed
+to be value of C<message> key.
 
 If the second call form (hashref) was used, key/value pairs are sorted using
 C<cmp> operator, unless the referred hash was tied to L<Tie::IxHash(3)>.
@@ -187,7 +191,11 @@ sub new {
     }
   } else {
     # keep the order
-    %self = @args;
+    if (@args % 2 == 1) {
+      %self = "message", @args;
+    } else {
+      %self = @args;
+    }
   }
 
   return bless \%self, $class;
