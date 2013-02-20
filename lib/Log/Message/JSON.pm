@@ -62,12 +62,12 @@ our @EXPORT_OK = qw{&logmsg &logmess &msg &json};
 
 use overload ('""' => \&to_json);
 
-use Tie::IxHash;
+use Log::Message::JSON::Hash;
 use Carp;
 
 #-----------------------------------------------------------------------------
 
-our $VERSION = '0.02';
+our $VERSION = '0.30.00';
 
 #-----------------------------------------------------------------------------
 
@@ -163,9 +163,9 @@ sub msg {
 Constructor.
 
 This method creates a new hash reference. The underlying hash is tied to
-L<Tie::IxHash(3)> and filled with arguments. Because of overloaded
-stringification operator, reference is blessed with Log::Message::JSON
-package.
+L<Tie::IxHash(3)> (actually, to a proxy class that uses L<Tie::IxHash(3)> as
+a backend) and filled with arguments. Because of overloaded stringification
+operator, reference is blessed with Log::Message::JSON package.
 
 If the first call form (list of pairs) was used, the order of key/value pairs
 is preserved. If the number of elements is odd, the first element is believed
@@ -179,7 +179,7 @@ C<cmp> operator, unless the referred hash was tied to L<Tie::IxHash(3)>.
 sub new {
   my ($class, @args) = @_;
 
-  tie my %self, 'Tie::IxHash';
+  tie my %self, 'Log::Message::JSON::Hash';
 
   if (@args == 1 && (ref $args[0] eq 'HASH' || eval {$args[0]->isa('HASH')})) {
     if (eval { tied(%{ $args[0] })->isa("Tie::IxHash") }) {
@@ -207,20 +207,27 @@ sub new {
 #
 #-----------------------------------------------------------------------------
 
+=begin Test::Pod::Coverage
+
+=item C<quote()>
+
+Helper function for quoting strings in JSON.
+
+=end Test::Pod::Coverage
+
+=cut
+
 sub quote($) {
   my ($str) = @_;
 
   my %q = (
     "\\" => "\\\\",
     '"'  => '\"',
-    "'"  => "\\'",
     "\n" => "\\n",
     "\r" => "\\r",
     "\t" => "\\t",
   );
-  my $q = join "", keys %q;
-  $q = qr/[$q]/;
-  $str =~ s/($q)/$q{$1}/g;
+  $str =~ s/([\\"\n\r\t])/$q{$1}/g;
 
   return $str;
 }
@@ -240,10 +247,17 @@ sub to_json($) {
   my ($value) = @_;
 
   if (ref $value eq __PACKAGE__) { # plain hash, tied
-    my @pairs = map {
-      sprintf '%s:%s', to_json($_), to_json($value->{$_})
-    } keys %$value;
-    return sprintf "{%s}", join ",", @pairs;
+    my $tied = tied %$value;
+
+    # store cache for this object if there was no cache for it
+    if (not defined $tied->cache) {
+      my @pairs = map {
+        sprintf '%s:%s', to_json($_), to_json($value->{$_})
+      } keys %$value;
+      $tied->cache(sprintf "{%s}", join ",", @pairs);
+    }
+
+    return $tied->cache;
   } elsif (ref $value eq "HASH") { # plain hash
     my @pairs = map {
       sprintf '%s:%s', to_json($_), to_json($value->{$_})
@@ -267,6 +281,40 @@ sub to_json($) {
 =back
 
 =cut
+
+#-----------------------------------------------------------------------------
+
+=head1 C<die()> NOTES
+
+To use Log::Message::JSON as a reason for C<die()>, you need to assign it to
+C<$@> variable and call C<die()> without arguments (works for Perl 5.8+).
+
+  unless (open my $f, "<", $file) {
+    $@ = msg "error opening file",
+             filename => $file,
+             error => "$!", errno => $! + 0;
+    die;
+  }
+
+Of course just calling C<die(msg(...))> will work as well, but it will result
+in a message without end-of-line character.
+
+=begin Test::Pod::Coverage
+
+=item C<PROPAGATE($file, $line)>
+
+B<SEE ALSO>: C<perldoc -f die>
+
+=end Test::Pod::Coverage
+
+=cut
+
+
+sub PROPAGATE {
+  my ($self, $file, $line) = @_;
+
+  return sprintf "died at %s line %d, %s\n", $file, $line, $self;
+}
 
 #-----------------------------------------------------------------------------
 
@@ -309,7 +357,8 @@ See http://dev.perl.org/licenses/ for more information.
 =head1 SEE ALSO
 
 L<Log::Log4perl(3)>, L<Log::Log4perl::Appender::Fluent(3)>,
-L<Tie::IxHash(3)>, L<Log::Message::Structured(3)>.
+L<Log::Message::JSON::Hash(3)>, L<Tie::IxHash(3)>,
+L<Log::Message::Structured(3)>.
 
 =cut
 

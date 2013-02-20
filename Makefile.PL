@@ -24,3 +24,20 @@ WriteMakefile(
   },
   dist          => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
 );
+
+sub MY::postamble {
+  return <<'EOF'
+.PHONY: reltest
+reltest: export RELEASE_TESTING=1
+reltest: test
+
+.PHONY: tarball
+tarball: make reltest
+	git archive --format=tar --prefix=$(DISTVNAME)/ v$(VERSION) | gzip -9 > $(DISTVNAME).tar.gz
+
+.PHONY: make
+make: Makefile
+
+Makefile: lib/Log/Message/JSON.pm
+EOF
+}
