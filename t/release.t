@@ -45,7 +45,8 @@ my $module_name;
 my $meta_version;
 do {
   my $meta = YAML::LoadFile("META.yml");
-  $module_name  = $meta->{name};
+  $module_name = $meta->{name};
+  $module_name =~ s/-/::/g;
   $meta_version = make_version $meta->{version};
 };
 

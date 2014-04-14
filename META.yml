@@ -1,5 +1,5 @@
-name:                Log::Message::JSON
-version:             0.30.00
+name:                Log-Message-JSON
+version:             0.30.01
 abstract:            structured messages that stringify to JSON
 license:             perl
 distribution_type:   module
